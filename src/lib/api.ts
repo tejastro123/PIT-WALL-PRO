@@ -29,8 +29,7 @@ async function ergastFetch<T>(endpoint: string): Promise<T | null> {
     });
     cache.set(cacheKey, { data: data.MRData, timestamp: Date.now() });
     return data.MRData as T;
-  } catch (err) {
-
+  } catch {
     return null;
   }
 }

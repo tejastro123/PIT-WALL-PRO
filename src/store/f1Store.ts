@@ -159,7 +159,7 @@ interface UserState {
 export const useUserStore = create<UserState>()(
   persist(
     devtools(
-      (set, get) => ({
+      (set) => ({
         profile: {
           id: "tejas",
           username: "Tejas",

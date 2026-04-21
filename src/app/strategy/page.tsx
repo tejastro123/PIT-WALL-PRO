@@ -91,7 +91,7 @@ export default function StrategyPage() {
     setSimStints(simStints.filter((_, i) => i !== idx));
   };
 
-  const updateStint = (idx: number, field: string, value: any) => {
+  const updateStint = <K extends keyof SimStint>(idx: number, field: K, value: SimStint[K]) => {
     const newStints = [...simStints];
     newStints[idx][field] = value;
     setSimStints(newStints);

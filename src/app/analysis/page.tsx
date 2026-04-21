@@ -363,8 +363,8 @@ export default function AnalysisPage() {
                             <h3 className="font-orbitron font-bold text-[11px] text-white tracking-[0.4em] uppercase">Cumulative_Time_Delta</h3>
                           </div>
                           <div className="font-mono text-[10px] text-white">
-                            FINAL GAP: <span className={cn("font-bold", (comparisonData?.delta?.[comparisonData.delta.length - 1] > 0 ? "text-red-500" : "text-green-500"))}>
-                              {comparisonData?.delta?.[comparisonData.delta.length - 1]?.toFixed(3)}s
+                            FINAL GAP: <span className={cn("font-bold", ((comparisonData?.delta?.[(comparisonData?.delta?.length || 1) - 1] || 0) > 0 ? "text-red-500" : "text-green-500"))}>
+                              {comparisonData?.delta?.[(comparisonData?.delta?.length || 1) - 1]?.toFixed(3) || "0.000"}s
                             </span>
                           </div>
                         </div>

@@ -7,7 +7,7 @@ import { useUserStore } from "@/store/f1Store";
 import type { Notification } from "@/types/f1";
 import { cn } from "@/lib/utils";
 
-const ICON_MAP = {
+const ICON_MAP: Record<string, any> = {
   RACE_START: Flag,
   OVERTAKE: Car,
   PIT_STOP: Zap,
@@ -17,6 +17,14 @@ const ICON_MAP = {
   CRASH: AlertTriangle,
   CHAMPIONSHIP_CHANGE: Bell,
   WEATHER: Bell,
+  SYSTEM_SUCCESS: Zap,
+  SYSTEM_ERROR: AlertTriangle,
+  SYSTEM_WARNING: AlertTriangle,
+  SYSTEM_INFO: Bell,
+  success: Zap,
+  error: AlertTriangle,
+  warning: AlertTriangle,
+  info: Bell,
 };
 
 const PRIORITY_COLORS = {

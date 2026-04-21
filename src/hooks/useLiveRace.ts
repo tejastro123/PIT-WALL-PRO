@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { LiveRaceState, LiveDriver, SafetyCarStatus } from "@/types/f1";
 import { useLiveRaceStore } from "@/store/f1Store";
 import { useUserStore } from "@/store/f1Store";
 

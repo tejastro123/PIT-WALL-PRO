@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏁 Pit Wall Pro - F1 Analytics & Strategy Dashboard
 
-## Getting Started
+Pit Wall Pro is a professional-grade Formula 1 analytics platform that combines real-time telemetry analysis with AI-driven strategy insights. Designed for race engineers and F1 enthusiasts, it provides a high-precision interface for monitoring driver performance, session breakdowns, and predictive modeling.
 
-First, run the development server:
+![Dashboard Preview](https://via.placeholder.com/1200x600?text=Pit+Wall+Pro+Dashboard+Preview)
+
+## 🚀 Features
+
+- **Real-time Telemetry**: High-precision driver telemetry visualization using `Fast-F1`.
+- **AI Strategy Engine**: Leveraging Google Generative AI for race scenario analysis and tactical recommendations.
+- **Predictive Modeling**: Advanced algorithms for qualifying and race pace projections.
+- **Modern UI**: A sleek, high-performance dashboard built with Next.js 15, Framer Motion, and Tailwind CSS.
+- **Session Analysis**: Comprehensive breakdowns of practice, qualifying, and race sessions.
+
+## 🛠 Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Framer Motion, Recharts, Zustand.
+- **Backend**: Python (FastAPI), Fast-F1 Library, Pandas.
+- **AI**: Google Generative AI (Gemini Pro).
+
+## 📥 Getting Started
+
+### Prerequisites
+
+- Node.js 20+ and npm/pnpm/yarn.
+- Python 3.10+
+- A Google Gemini API Key.
+
+### 1. Frontend Setup
 
 ```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your GOOGLE_GENERATIVE_AI_API_KEY
+
+# Run the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Backend Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd python-backend
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-## Learn More
+# Install dependencies
+pip install -r requirements.txt
 
-To learn more about Next.js, take a look at the following resources:
+# Run the backend server
+python main.py
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🏗 Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/src`: Next.js frontend source code.
+- `/python-backend`: Python API for F1 telemetry and data processing.
+- `/public`: Static assets and icons.
 
-## Deploy on Vercel
+## 📄 License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is licensed under the MIT License.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+*Note: This project is an unofficial tool and is not affiliated with Formula 1 or the FIA.*
