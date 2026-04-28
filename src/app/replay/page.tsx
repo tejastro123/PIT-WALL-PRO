@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { motion } from "framer-motion";
 import {
-  Play, Pause, SkipForward, SkipBack,
-  RotateCcw, History, LayoutGrid, Map as MapIcon,
-  Activity, Clock, Gauge
+  Play, Pause,
+  RotateCcw, History, LayoutGrid, Map as MapIcon, Activity
 } from "lucide-react";
 import { LiveLeaderboard } from "@/components/live/LiveLeaderboard";
 import { InteractiveTrackMap } from "@/components/live/InteractiveTrackMap";
@@ -14,11 +13,9 @@ import { RaceControlFeed } from "@/components/live/RaceControlFeed";
 import { TrackConditions } from "@/components/live/TrackConditions";
 import { generateMockLiveRace } from "@/lib/mock-data";
 import { useLiveRace } from "@/hooks/useLiveRace";
-import { useLiveRaceStore } from "@/store/f1Store";
 
 export default function RaceReplayPage() {
   useLiveRace();
-  const { isConnected } = useLiveRaceStore();
   const [currentLap, setCurrentLap] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);

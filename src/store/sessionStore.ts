@@ -5,6 +5,7 @@ interface SessionState {
   year: number;
   event: string;
   sessionType: string;
+  setYear: (year: number) => void;
   setEvent: (event: string) => void;
   setSessionType: (type: string) => void;
 }
@@ -15,6 +16,7 @@ export const useSessionStore = create<SessionState>()(
       year: 2026,
       event: 'Miami',
       sessionType: 'FP1',
+      setYear: (year) => set({ year }),
       setEvent: (event) => set({ event }),
       setSessionType: (sessionType) => set({ sessionType }),
     }),

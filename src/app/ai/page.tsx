@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { Brain, Sparkles, TrendingUp, Cpu, RefreshCw } from "lucide-react";
 import { useF1Store, useLiveRaceStore } from "@/store/f1Store";
@@ -34,8 +34,13 @@ export default function AIInsightsPage() {
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const insightsRequestRef = useRef<AbortController | null>(null);
 
   const fetchInsights = useCallback(async () => {
+    insightsRequestRef.current?.abort();
+    const controller = new AbortController();
+    insightsRequestRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
@@ -55,18 +60,30 @@ export default function AIInsightsPage() {
       const res = await fetch("/api/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ f1Context })
+        body: JSON.stringify({ f1Context }),
+        signal: controller.signal,
       });
 
       if (!res.ok) throw new Error("Failed to generate AI insights");
 
       const data = await res.json();
+      if (controller.signal.aborted) {
+        return;
+      }
+
       setInsights(data.insights || []);
     } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
       console.error(err);
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setLoading(false);
+      if (insightsRequestRef.current === controller) {
+        insightsRequestRef.current = null;
+        setLoading(false);
+      }
     }
   }, [driverStandings, constructorStandings]);
 
@@ -76,7 +93,10 @@ export default function AIInsightsPage() {
       const timer = setTimeout(() => {
         fetchInsights();
       }, 0);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        insightsRequestRef.current?.abort();
+      };
     }
   }, [driverStandings.length, fetchInsights]);
 

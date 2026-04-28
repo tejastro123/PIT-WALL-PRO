@@ -73,7 +73,7 @@ export function LastRaceResults({ race, results, isLoading }: Props) {
         <div className="px-5 py-3 bg-[rgba(225,6,0,0.05)] border-b border-[var(--f1-gray)]">
           <span className="font-mono text-[10px] text-[var(--f1-gray-light)] tracking-widest">FULL CLASSIFICATION</span>
         </div>
-        {results.map((r, i) => {
+        {results.map((r) => {
           const teamColor = getTeamColor(r.Constructor.constructorId);
           return (
             <div key={r.Driver.driverId}

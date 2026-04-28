@@ -44,6 +44,7 @@ export async function GET(
         Accept: "application/json",
         "User-Agent": "Pit-Wall-Pro/1.0",
       },
+      signal: request.signal,
     });
 
     return NextResponse.json(response.data, {
@@ -54,6 +55,9 @@ export async function GET(
   } catch (error: unknown) {
     const err = error as AxiosError;
 
+    if (request.signal.aborted || axios.isCancel(error) || err.code === "ERR_CANCELED") {
+      return new Response(null, { status: 499 });
+    }
 
     // Fallback logic for common endpoints
     const lowerPath = path.toLowerCase();

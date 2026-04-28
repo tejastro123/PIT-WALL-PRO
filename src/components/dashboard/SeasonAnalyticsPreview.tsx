@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import type { DriverStanding } from "@/types/f1";
 import { getDriverColor } from "@/lib/driver-colors";
-import { useFastF1 } from "@/hooks/useFastF1";
+import { useFastF1, type SeasonResultData } from "@/hooks/useFastF1";
 import { useSessionStore } from "@/store/sessionStore";
 
 interface Props {
@@ -15,16 +15,29 @@ interface Props {
 export function SeasonAnalyticsPreview({ drivers }: Props) {
   const { getSeasonResults } = useFastF1();
   const { year } = useSessionStore();
-  const [seasonResults, setSeasonResults] = useState<any[]>([]);
+  const [seasonResults, setSeasonResults] = useState<SeasonResultData[]>([]);
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
     async function loadData() {
-      const data = await getSeasonResults(year);
+      const data = await getSeasonResults(year, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
       if (data) setSeasonResults(data);
     }
+
     loadData();
+
+    return () => controller.abort();
   }, [year, getSeasonResults]);
 
   const top3 = drivers.slice(0, 3).map(d => d.Driver.code);
@@ -32,7 +45,7 @@ export function SeasonAnalyticsPreview({ drivers }: Props) {
   const chartData = useMemo(() => {
     const rounds = Array.from(new Set(seasonResults.map(r => r.round))).sort((a, b) => a - b);
     return rounds.map(rnd => {
-      const row: any = { round: `R${rnd}` };
+      const row: Record<string, string | number> = { round: `R${rnd}` };
       top3.forEach((drv, i) => {
         const res = seasonResults.find(r => r.driverCode === drv && r.round === rnd);
         row[`p${i+1}`] = res ? res.points : 0;
@@ -65,7 +78,7 @@ export function SeasonAnalyticsPreview({ drivers }: Props) {
               POINTS_ACCUMULATION_CURVE
             </div>
             <div className="flex gap-4">
-              {top3.map((code, i) => (
+              {top3.map((code) => (
                 <div key={code} className="flex items-center gap-2">
                   <div className="w-2 h-2" style={{ backgroundColor: getDriverColor(code) }} />
                   <span className="font-mono text-[9px] text-white uppercase">{code}</span>
@@ -75,7 +88,10 @@ export function SeasonAnalyticsPreview({ drivers }: Props) {
           </div>
 
           <div className="h-[240px] w-full relative">
-            <ResponsiveContainer width="100%" height="100%" key={seasonResults.length}>
+            {!mounted ? (
+              <div className="w-full h-full bg-white/5 animate-pulse" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%" key={seasonResults.length} minHeight={100}>
               <AreaChart data={chartData}>
                 <defs>
                   {top3.map((code, i) => (
@@ -110,7 +126,8 @@ export function SeasonAnalyticsPreview({ drivers }: Props) {
                   />
                 ))}
               </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 

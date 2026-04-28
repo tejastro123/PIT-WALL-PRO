@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Radio, BarChart3, Repeat, Gamepad2, Brain, History, Mic, Users, LayoutDashboard } from "lucide-react";
+import { Radio, BarChart3, Repeat, Brain, History, LayoutDashboard } from "lucide-react";
 
 const LINKS = [
   { href: "/live", label: "LIVE TRACK", icon: Radio, color: "var(--f1-red)", hot: true },

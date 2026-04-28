@@ -7,27 +7,51 @@ import { useSessionStore } from "@/store/sessionStore";
 import { getDriverColor } from "@/lib/driver-colors";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, ReferenceLine, LabelList
+  ResponsiveContainer, Cell, LabelList
 } from "recharts";
 import { SessionSelector } from "@/components/ui/SessionSelector";
 import { Zap, Timer, Award, Flag } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+interface QualifyingResult {
+  position: number;
+  driver: string;
+  team: string;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  best_lap: number;
+}
 
 export default function QualifyingPage() {
   const { getQualifying, loading } = useFastF1();
   const { year, event } = useSessionStore();
-  const [qualifyingData, setQualifyingData] = useState<any[]>([]);
+  const [qualifyingData, setQualifyingData] = useState<QualifyingResult[]>([]);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function loadData() {
-      const data = await getQualifying(year, event);
+      const data = await getQualifying(year, event, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
       if (data) {
         // Sort by position
         const sorted = [...data].sort((a, b) => (a.position || 99) - (b.position || 99));
         setQualifyingData(sorted);
       }
     }
+
     loadData();
+
+    return () => controller.abort();
   }, [year, event, getQualifying]);
 
   const poleTime = qualifyingData[0]?.best_lap || 0;
@@ -43,14 +67,14 @@ export default function QualifyingPage() {
   const segmentLeaders = useMemo(() => {
     if (qualifyingData.length === 0) return { q1: null, q2: null, q3: null };
 
-    const q1Leader = [...qualifyingData].filter(d => d.q1).sort((a, b) => a.q1 - b.q1)[0];
-    const q2Leader = [...qualifyingData].filter(d => d.q2).sort((a, b) => a.q2 - b.q2)[0];
+    const q1Leader = [...qualifyingData].filter(d => d.q1).sort((a, b) => (a.q1!) - (b.q1!))[0];
+    const q2Leader = [...qualifyingData].filter(d => d.q2).sort((a, b) => (a.q2!) - (b.q2!))[0];
     const q3Leader = qualifyingData[0]; // Already sorted by position/best_lap which is Q3 for top 10
 
     return { q1: q1Leader, q2: q2Leader, q3: q3Leader };
   }, [qualifyingData]);
 
-  function formatTime(seconds: number | null) {
+  function formatTime(seconds: number | null | undefined) {
     if (!seconds) return "—";
     const mins = Math.floor(seconds / 60);
     const secs = (seconds % 60).toFixed(3);
@@ -110,7 +134,10 @@ export default function QualifyingPage() {
               </div>
 
               <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                {!mounted ? (
+                  <div className="w-full h-full bg-white/5 animate-pulse" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%" minHeight={100}>
                   <BarChart layout="vertical" data={chartData} margin={{ left: 40, right: 60 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                     <XAxis type="number" hide domain={[poleTime * 0.95, 'dataMax + 0.1']} />
@@ -118,7 +145,7 @@ export default function QualifyingPage() {
                     <Tooltip
                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                       contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }}
-                      formatter={(_val: any, _name: any, props: any) => [props.payload.gap === "0.000" ? "POLE" : `+${props.payload.gap}s`, 'GAP']}
+                      formatter={(_val, _name, props) => [props.payload.gap === "0.000" ? "POLE" : `+${props.payload.gap}s`, 'GAP']}
                     />
                     <Bar dataKey="best_lap" radius={[0, 4, 4, 0]}>
                       {chartData.map((entry, index) => (
@@ -135,6 +162,7 @@ export default function QualifyingPage() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                )}
               </div>
             </motion.div>
 

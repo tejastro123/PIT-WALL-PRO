@@ -6,7 +6,7 @@ import { useUserStore } from "@/store/f1Store";
 import { motion } from "framer-motion";
 import { getTeamColor, getPositionColor } from "@/lib/utils";
 import { Building2, Star } from "lucide-react";
-import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
+
 
 export default function TeamsPage() {
   const { isLoading } = useF1Data();

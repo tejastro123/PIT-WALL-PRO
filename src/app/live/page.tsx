@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLiveRaceStore } from "@/store/f1Store";
 import { useLiveRace } from "@/hooks/useLiveRace";
@@ -9,7 +8,7 @@ import { TrackConditions } from "@/components/live/TrackConditions";
 import { LiveTelemetryChart } from "@/components/live/LiveTelemetryChart";
 import { SafetyCarBanner } from "@/components/live/SafetyCarBanner";
 import { RaceProgress } from "@/components/live/RaceProgress";
-import { Radio, Wifi } from "lucide-react";
+import { Radio } from "lucide-react";
 
 import { GapSnakeChart } from "@/components/live/GapSnakeChart";
 import { RaceControlFeed } from "@/components/live/RaceControlFeed";

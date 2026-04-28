@@ -9,11 +9,22 @@ function LiveRaceInitializer() {
   return null;
 }
 
+function isAbortError(error: unknown) {
+  return (error instanceof Error && error.name === "AbortError")
+    || (error instanceof Error && error.name === "CanceledError");
+}
+
 const queryClientConfig = {
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
-      retry: 3,
+      retry: (failureCount: number, error: unknown) => {
+        if (isAbortError(error)) {
+          return false;
+        }
+
+        return failureCount < 3;
+      },
       retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 30000),
     },
   },

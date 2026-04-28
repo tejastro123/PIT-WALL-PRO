@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Bell, AlertTriangle, Flag, Car, Zap } from "lucide-react";
 import { useUserStore } from "@/store/f1Store";
 import type { Notification } from "@/types/f1";
 import { cn } from "@/lib/utils";
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, React.ElementType> = {
   RACE_START: Flag,
   OVERTAKE: Car,
   PIT_STOP: Zap,

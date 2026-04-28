@@ -4,13 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useFastF1, StrategySimulationResult } from "@/hooks/useFastF1";
 import { useSessionStore } from "@/store/sessionStore";
-import { getDriverColor, getTireColor } from "@/lib/driver-colors";
+import { getTireColor } from "@/lib/driver-colors";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell
 } from "recharts";
 import { SessionSelector } from "@/components/ui/SessionSelector";
-import { Repeat, Zap, Layers, TrendingUp, Timer, AlertTriangle } from "lucide-react";
+import { Repeat, Zap, Layers, TrendingUp, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TOTAL_LAPS_MAP: Record<string, number> = {
@@ -39,6 +39,12 @@ export default function StrategyPage() {
 
   const [actualStints, setActualStints] = useState<Stint[]>([]);
   const [activeView, setActiveView] = useState<"actual" | "simulation">("actual");
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   // Simulator State
   const [simStints, setSimStints] = useState<SimStint[]>([
@@ -51,21 +57,39 @@ export default function StrategyPage() {
   const totalLaps = TOTAL_LAPS_MAP[event] || 57;
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function loadData() {
-      const stints = await getActualStrategy(year, event);
+      const stints = await getActualStrategy(year, event, controller.signal);
+      if (controller.signal.aborted) {
+        return;
+      }
+
       if (stints) setActualStints(stints);
     }
+
     loadData();
+
+    return () => controller.abort();
   }, [year, event, getActualStrategy]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function runSim() {
       if (activeView === "simulation") {
-        const res = await getStrategySimulation(year, event, simStints);
+        const res = await getStrategySimulation(year, event, simStints, controller.signal);
+        if (controller.signal.aborted) {
+          return;
+        }
+
         if (res) setSimResult(res);
       }
     }
+
     runSim();
+
+    return () => controller.abort();
   }, [simStints, activeView, year, event, getStrategySimulation]);
 
   const stintChartData = useMemo(() => {
@@ -172,7 +196,10 @@ export default function StrategyPage() {
                   </div>
 
                   <div className="h-[550px] w-full mb-8">
-                    <ResponsiveContainer width="100%" height="100%">
+                    {!mounted ? (
+                      <div className="w-full h-full bg-white/5 animate-pulse" />
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%" minHeight={100}>
                       <BarChart
                         layout="vertical"
                         data={stintChartData}
@@ -222,6 +249,7 @@ export default function StrategyPage() {
                         ))}
                       </BarChart>
                     </ResponsiveContainer>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap justify-center gap-8 mt-12 pt-8 border-t border-white/5">
@@ -406,7 +434,7 @@ export default function StrategyPage() {
                           <h4 className="font-orbitron font-bold text-[10px] text-white tracking-widest uppercase">Compound_Efficiency</h4>
                         </div>
                         <div className="space-y-2">
-                          {simResult?.stints.map((s: any, i: number) => (
+                          {simResult?.stints.map((s, i) => (
                             <div key={i} className="flex items-center justify-between">
                               <span className="font-mono text-[8px] text-white/60">STINT {i + 1} AVG:</span>
                               <span className="font-mono text-[8px] text-white font-bold">{s.avg_lap.toFixed(3)}s</span>

@@ -1,7 +1,8 @@
 import { streamText, convertToModelMessages } from "ai";
 import { google } from "@ai-sdk/google";
 
-export const runtime = "edge";
+// Use default Node.js runtime to avoid static generation warnings
+// export const runtime = "edge";
 
 export async function POST(req: Request) {
   try {

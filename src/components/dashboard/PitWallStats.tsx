@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useF1Store } from "@/store/f1Store";
-import { pad } from "@/lib/utils";
 
 export function PitWallStats() {
   const { races, driverStandings, constructorStandings } = useF1Store();
@@ -44,7 +43,16 @@ export function PitWallStats() {
   );
 }
 
-function StatBlock({ label, value, sub, progress, color, isLive }: any) {
+interface StatBlockProps {
+  label: string;
+  value: string;
+  sub: string;
+  progress?: number;
+  color?: string;
+  isLive?: boolean;
+}
+
+function StatBlock({ label, value, sub, progress, color, isLive }: StatBlockProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}

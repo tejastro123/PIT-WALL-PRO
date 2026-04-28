@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar as CalendarIcon, MapPin, Clock,
-  ChevronRight, Info, Cloud, Ticket,
+  ChevronRight, Cloud, Ticket,
   Timer, Flag, Navigation
 } from "lucide-react";
 import Link from "next/link";

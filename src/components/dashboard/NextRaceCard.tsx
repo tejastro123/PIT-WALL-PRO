@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, Clock, ChevronRight } from "lucide-react";
+import { Calendar, Clock, ChevronRight } from "lucide-react";
 import type { Race } from "@/types/f1";
 import { calculateCountdown, getCountryFlag, formatDate, pad } from "@/lib/utils";
 import Image from "next/image";
@@ -125,9 +125,9 @@ export function NextRaceCard({ race, isLoading }: Props) {
             <div className="flex flex-col gap-2">
               <div className="font-mono text-[9px] tracking-[0.3em] text-[var(--f1-gray-light)] mb-2 uppercase">WEEKEND SCHEDULE</div>
               <div className="flex flex-wrap gap-2">
-                {race.Qualifying && <ScheduleItem label="QUALI" time={race.Qualifying.date} />}
-                {race.Sprint && <ScheduleItem label="SPRINT" time={race.Sprint.date} highlight />}
-                <ScheduleItem label="RACE" time={race.date} active />
+                {race.Qualifying && <ScheduleItem label="QUALI" />}
+                {race.Sprint && <ScheduleItem label="SPRINT" highlight />}
+                <ScheduleItem label="RACE" active />
               </div>
             </div>
           </div>
@@ -163,7 +163,7 @@ export function NextRaceCard({ race, isLoading }: Props) {
   );
 }
 
-function ScheduleItem({ label, time, active, highlight }: { label: string; time: string; active?: boolean; highlight?: boolean }) {
+function ScheduleItem({ label, active, highlight }: { label: string; active?: boolean; highlight?: boolean }) {
   return (
     <div className={`px-3 py-2 border font-mono text-[9px] tracking-widest transition-all ${
       active 

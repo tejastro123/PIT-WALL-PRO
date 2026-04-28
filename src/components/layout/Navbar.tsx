@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Flag, Gauge, Users, Building2, Trophy, History,
+  Flag, Users, Building2, Trophy, History,
   Bell, Settings, Menu, X, Radio, ChevronRight,
   Gamepad2, Brain, Mic, BarChart3, Repeat, Calendar as CalendarIcon, Activity, Zap,
   RotateCcw

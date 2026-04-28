@@ -1,6 +1,22 @@
-import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useCallback, useRef } from 'react';
 
-const FASTF1_BASE_URL = 'http://localhost:8000';
+const FASTF1_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+class FastF1RequestError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'FastF1RequestError';
+    this.status = status;
+  }
+}
+
+interface FetchWithRetryOptions {
+  retries?: number;
+  signal?: AbortSignal;
+}
 
 export interface DriverTelemetry {
   driver: string;
@@ -16,7 +32,7 @@ export interface DriverTelemetry {
     drs: number[];
     x: number[];
     y: number[];
-    z: number[];
+    distance: number[];
   };
 }
 
@@ -92,226 +108,488 @@ export interface StrategySimulationResult {
   }>;
 }
 
+export interface TeamPace {
+  Team: string;
+  LapTimeSeconds: number;
+}
+
+export interface SeasonResultData {
+  round: number;
+  driverCode: string;
+  points: number;
+  position: number;
+}
+
+export interface SeasonSummary {
+  position: number;
+  driverId: string;
+  driverCode: string;
+  name: string;
+  familyName: string;
+  points: number;
+  wins: number;
+}
+
+export interface WdcScenario {
+  driver: string;
+  points: number;
+  max_possible: number;
+  can_win: boolean;
+}
+
+export interface WccScenario {
+  team: string;
+  points: number;
+  max_possible: number;
+  can_win: boolean;
+}
+
+export interface QualifyingResult {
+  driver: string;
+  team: string;
+  position: number;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  best_lap: number;
+}
+
+export interface ChampionshipScenarios {
+  drivers: WdcScenario[];
+  teams: WccScenario[];
+  max_remaining_points: number;
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function shouldRetryFastF1Request(error: unknown) {
+  if (isAbortError(error)) {
+    return false;
+  }
+
+  if (error instanceof FastF1RequestError) {
+    return error.status >= 500 || error.status === 429;
+  }
+
+  return true;
+}
+
+function buildFastF1Url(path: string, params: Record<string, string | number | null | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  return `${FASTF1_BASE_URL}${path}?${searchParams.toString()}`;
+}
+
+async function waitForRetry(delayMs: number, signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException('The operation was aborted.', 'AbortError');
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, delayMs);
+
+    function onAbort() {
+      window.clearTimeout(timeoutId);
+      reject(new DOMException('The operation was aborted.', 'AbortError'));
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+const fetchWithRetry = async (url: string, options: FetchWithRetryOptions = {}) => {
+  const { retries = 3, signal } = options;
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, { signal });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { detail?: string; error?: string } | null;
+        const message = payload?.detail || payload?.error || `HTTP error! status: ${response.status}`;
+        throw new FastF1RequestError(message, response.status);
+      }
+
+      return await response.json();
+    } catch (err) {
+      if (!shouldRetryFastF1Request(err) || i === retries - 1) {
+        throw err;
+      }
+
+      await waitForRetry(1000 * (i + 1), signal);
+    }
+  }
+
+  throw new Error('Request failed without returning a response.');
+};
+
+// Standalone Hooks with Strong Typing
+export function useF1Session(year: number, event: string, sessionType: string) {
+  return useQuery<SessionData>({
+    queryKey: ['session', year, event, sessionType],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/session', { year, event, session_type: sessionType }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 30,
+  });
+}
+
+export function useF1Telemetry(year: number, event: string, sessionType: string, driver: string | null, lapNumber?: number) {
+  return useQuery<DriverTelemetry>({
+    queryKey: ['telemetry', year, event, sessionType, driver, lapNumber],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/telemetry', {
+        year,
+        event,
+        session_type: sessionType,
+        driver,
+        lap_number: lapNumber
+      }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+    enabled: !!driver,
+  });
+}
+
+export function useF1Comparison(year: number, event: string, sessionType: string, d1: string | null, d2: string | null) {
+  return useQuery<ComparisonData>({
+    queryKey: ['comparison', year, event, sessionType, d1, d2],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/comparison', {
+        year,
+        event,
+        session_type: sessionType,
+        d1,
+        d2
+      }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+    enabled: !!d1 && !!d2,
+  });
+}
+
+export function useF1Laps(year: number, event: string, sessionType: string, enabled = true) {
+  return useQuery<LapData[]>({
+    queryKey: ['laps', year, event, sessionType],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/laps', { year, event, session_type: sessionType }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+    enabled,
+  });
+}
+
+export function useF1TrackMap(
+  year: number,
+  event: string,
+  sessionType: string,
+  driver?: string,
+  enabled = true
+) {
+  return useQuery<TrackMapData>({
+    queryKey: ['track-map', year, event, sessionType, driver],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/track-map', {
+        year,
+        event,
+        session_type: sessionType,
+        driver
+      }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60 * 24,
+    enabled,
+  });
+}
+
+export function useF1LapDistribution(year: number, event: string) {
+  return useQuery<LapData[]>({
+    queryKey: ['lap-distribution', year, event],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/lap-distribution', { year, event }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+  });
+}
+
+export function useF1TeamPace(year: number, event: string) {
+  return useQuery<TeamPace[]>({
+    queryKey: ['team-pace', year, event],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/team-pace', { year, event }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+  });
+}
+
+export function useF1SeasonResults(year: number) {
+  return useQuery<SeasonResultData[]>({
+    queryKey: ['season-results', year],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/season-results', { year }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+}
+
+export function useF1SeasonSummary(year: number) {
+  return useQuery<SeasonSummary[]>({
+    queryKey: ['season-summary', year],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/season-summary', { year }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+}
+
+export function useF1WdcScenarios(year: number, currentRound: number) {
+  return useQuery<ChampionshipScenarios>({
+    queryKey: ['wdc-scenarios', year, currentRound],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/wdc-scenarios', { year, current_round: currentRound }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+    enabled: !!currentRound,
+  });
+}
+
+export function useF1WccScenarios(year: number, currentRound: number) {
+  return useQuery<ChampionshipScenarios>({
+    queryKey: ['wcc-scenarios', year, currentRound],
+    queryFn: ({ signal }) => fetchWithRetry(
+      buildFastF1Url('/wcc-scenarios', { year, current_round: currentRound }),
+      { signal }
+    ),
+    staleTime: 1000 * 60 * 60,
+    enabled: !!currentRound,
+  });
+}
+
 export function useFastF1() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingRequestsRef = useRef(0);
 
-  const fetchWithRetry = async (url: string, retries = 3) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
-      } catch (err) {
-        if (i === retries - 1) throw err;
-        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); 
+  const beginRequest = useCallback(() => {
+    pendingRequestsRef.current += 1;
+    setLoading(true);
+  }, []);
+
+  const finishRequest = useCallback(() => {
+    pendingRequestsRef.current = Math.max(0, pendingRequestsRef.current - 1);
+    setLoading(pendingRequestsRef.current > 0);
+  }, []);
+
+  const executeRequest = useCallback(async <T,>(
+    request: () => Promise<T>,
+    signal?: AbortSignal
+  ): Promise<T | null> => {
+    beginRequest();
+    setError(null);
+
+    try {
+      return await request();
+    } catch (err) {
+      if (isAbortError(err) || signal?.aborted) {
+        return null;
       }
-    }
-  };
 
-  const getSession = useCallback(async (year: number, event: string, sessionType: string): Promise<SessionData | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/session?year=${year}&event=${event}&session_type=${sessionType}`);
-    } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
-      setLoading(false);
+      finishRequest();
     }
-  }, []);
+  }, [beginRequest, finishRequest]);
 
-  const getTelemetry = useCallback(async (year: number, event: string, sessionType: string, driver: string, lapNumber?: number): Promise<DriverTelemetry | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      let url = `${FASTF1_BASE_URL}/telemetry?year=${year}&event=${event}&session_type=${sessionType}&driver=${driver}`;
-      if (lapNumber) url += `&lap_number=${lapNumber}`;
-      return await fetchWithRetry(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getSession = useCallback(async (
+    year: number,
+    event: string,
+    sessionType: string,
+    signal?: AbortSignal
+  ): Promise<SessionData | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/session', { year, event, session_type: sessionType }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getComparison = useCallback(async (year: number, event: string, sessionType: string, d1: string, d2: string): Promise<ComparisonData | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/comparison?year=${year}&event=${event}&session_type=${sessionType}&d1=${d1}&d2=${d2}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getTelemetry = useCallback(async (
+    year: number,
+    event: string,
+    sessionType: string,
+    driver: string,
+    lapNumber?: number,
+    signal?: AbortSignal
+  ): Promise<DriverTelemetry | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/telemetry', {
+          year,
+          event,
+          session_type: sessionType,
+          driver,
+          lap_number: lapNumber
+        }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getLaps = useCallback(async (year: number, event: string, sessionType: string): Promise<LapData[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/laps?year=${year}&event=${event}&session_type=${sessionType}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getComparison = useCallback(async (
+    year: number,
+    event: string,
+    sessionType: string,
+    d1: string,
+    d2: string,
+    signal?: AbortSignal
+  ): Promise<ComparisonData | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/comparison', { year, event, session_type: sessionType, d1, d2 }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getTrackMap = useCallback(async (year: number, event: string, sessionType: string, driver?: string): Promise<TrackMapData | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      let url = `${FASTF1_BASE_URL}/track-map?year=${year}&event=${event}&session_type=${sessionType}`;
-      if (driver) url += `&driver=${driver}`;
-      return await fetchWithRetry(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getLaps = useCallback(async (
+    year: number,
+    event: string,
+    sessionType: string,
+    signal?: AbortSignal
+  ): Promise<LapData[] | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/laps', { year, event, session_type: sessionType }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getActualStrategy = useCallback(async (year: number, event: string): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/strategy-actual?year=${year}&event=${event}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getTrackMap = useCallback(async (
+    year: number,
+    event: string,
+    sessionType: string,
+    driver?: string,
+    signal?: AbortSignal
+  ): Promise<TrackMapData | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/track-map', { year, event, session_type: sessionType, driver }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getLapDistribution = useCallback(async (year: number, event: string): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/lap-distribution?year=${year}&event=${event}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getQualifying = useCallback(async (
+    year: number,
+    event: string,
+    signal?: AbortSignal
+  ): Promise<QualifyingResult[] | null> => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/qualifying', { year, event }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getTeamPace = useCallback(async (year: number, event: string): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/team-pace?year=${year}&event=${event}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getActualStrategy = useCallback(async (year: number, event: string, signal?: AbortSignal) => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/strategy-actual', { year, event }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getSeasonResults = useCallback(async (year: number): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/season-results?year=${year}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getLapDistribution = useCallback(async (year: number, event: string, signal?: AbortSignal) => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/lap-distribution', { year, event }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getSeasonSummary = useCallback(async (year: number): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/season-summary?year=${year}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getTeamPace = useCallback(async (year: number, event: string, signal?: AbortSignal) => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/team-pace', { year, event }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getWdcScenarios = useCallback(async (year: number, currentRound: number): Promise<any | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/wdc-scenarios?year=${year}&current_round=${currentRound}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getSeasonResults = useCallback(async (year: number, signal?: AbortSignal): Promise<SeasonResultData[] | null> => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/season-results', { year }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getWccScenarios = useCallback(async (year: number, currentRound: number): Promise<any | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/wcc-scenarios?year=${year}&current_round=${currentRound}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getSeasonSummary = useCallback(async (year: number, signal?: AbortSignal): Promise<SeasonSummary[] | null> => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/season-summary', { year }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getStrategySimulation = useCallback(async (year: number, event: string, stints: any[]): Promise<StrategySimulationResult | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const stintsJson = JSON.stringify(stints);
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/strategy-simulation?year=${year}&event=${event}&stints=${encodeURIComponent(stintsJson)}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getWdcScenarios = useCallback(async (year: number, currentRound: number, signal?: AbortSignal): Promise<ChampionshipScenarios | null> => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/wdc-scenarios', { year, current_round: currentRound }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
 
-  const getQualifying = useCallback(async (year: number, event: string): Promise<any[] | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      return await fetchWithRetry(`${FASTF1_BASE_URL}/qualifying?year=${year}&event=${event}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const getWccScenarios = useCallback(async (year: number, currentRound: number, signal?: AbortSignal): Promise<ChampionshipScenarios | null> => {
+    return executeRequest(
+      () => fetchWithRetry(buildFastF1Url('/wcc-scenarios', { year, current_round: currentRound }), { signal }),
+      signal
+    );
+  }, [executeRequest]);
+
+  const getStrategySimulation = useCallback(async (
+    year: number,
+    event: string,
+    stints: unknown[],
+    signal?: AbortSignal
+  ): Promise<StrategySimulationResult | null> => {
+    return executeRequest(
+      () => fetchWithRetry(
+        buildFastF1Url('/strategy-simulation', {
+          year,
+          event,
+          stints: JSON.stringify(stints)
+        }),
+        { signal }
+      ),
+      signal
+    );
+  }, [executeRequest]);
 
   return {
-    getSession,
-    getTelemetry,
-    getComparison,
-    getLaps,
-    getTrackMap,
-    getQualifying,
-    getActualStrategy,
-    getLapDistribution,
-    getTeamPace,
-    getSeasonResults,
-    getSeasonSummary,
-    getWdcScenarios,
-    getWccScenarios,
-    getStrategySimulation,
-    loading,
-    error
+    getSession, getTelemetry, getComparison, getLaps, getTrackMap, getQualifying,
+    getActualStrategy, getLapDistribution, getTeamPace, getSeasonResults, getSeasonSummary,
+    getWdcScenarios, getWccScenarios, getStrategySimulation,
+    loading, error
   };
 }

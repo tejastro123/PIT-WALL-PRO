@@ -15,7 +15,14 @@ const SEASON = "2026"; // Current season
 const cache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-async function ergastFetch<T>(endpoint: string): Promise<T | null> {
+function isRequestAborted(error: unknown, signal?: AbortSignal) {
+  return signal?.aborted
+    || axios.isCancel(error)
+    || (axios.isAxiosError(error) && error.code === "ERR_CANCELED")
+    || (error instanceof Error && error.name === "AbortError");
+}
+
+async function ergastFetch<T>(endpoint: string, signal?: AbortSignal): Promise<T | null> {
   const cacheKey = endpoint;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -26,21 +33,27 @@ async function ergastFetch<T>(endpoint: string): Promise<T | null> {
     const { data } = await axios.get(`${ERGAST_BASE}/${endpoint}.json?limit=100`, {
       timeout: 20000,
       headers: { Accept: "application/json" },
+      signal,
     });
     cache.set(cacheKey, { data: data.MRData, timestamp: Date.now() });
     return data.MRData as T;
-  } catch {
+  } catch (error) {
+    if (isRequestAborted(error, signal)) {
+      throw error;
+    }
+
     return null;
   }
 }
 
 // Driver Standings
 export async function fetchDriverStandings(
-  season = SEASON
+  season = SEASON,
+  signal?: AbortSignal
 ): Promise<DriverStanding[]> {
   const data = await ergastFetch<{
     StandingsTable: { StandingsLists: Array<{ DriverStandings: DriverStanding[]; round: string }> };
-  }>(`${season}/driverstandings`);
+  }>(`${season}/driverstandings`, signal);
 
   if (!data?.StandingsTable?.StandingsLists?.[0]) return [];
   return data.StandingsTable.StandingsLists[0].DriverStandings;
@@ -48,48 +61,50 @@ export async function fetchDriverStandings(
 
 // Constructor Standings
 export async function fetchConstructorStandings(
-  season = SEASON
+  season = SEASON,
+  signal?: AbortSignal
 ): Promise<ConstructorStanding[]> {
   const data = await ergastFetch<{
     StandingsTable: { StandingsLists: Array<{ ConstructorStandings: ConstructorStanding[] }> };
-  }>(`${season}/constructorstandings`);
+  }>(`${season}/constructorstandings`, signal);
 
   if (!data?.StandingsTable?.StandingsLists?.[0]) return [];
   return data.StandingsTable.StandingsLists[0].ConstructorStandings;
 }
 
 // Race Schedule
-export async function fetchRaceSchedule(season = SEASON): Promise<Race[]> {
+export async function fetchRaceSchedule(season = SEASON, signal?: AbortSignal): Promise<Race[]> {
   const data = await ergastFetch<{
     RaceTable: { Races: Race[] };
-  }>(`${season}/races`);
+  }>(`${season}/races`, signal);
 
   return data?.RaceTable?.Races || [];
 }
 
 // Season Drivers
-export async function fetchSeasonDrivers(season = SEASON) {
-  return await ergastFetch(`${season}/drivers`);
+export async function fetchSeasonDrivers(season = SEASON, signal?: AbortSignal) {
+  return await ergastFetch(`${season}/drivers`, signal);
 }
 
 // Season Constructors
-export async function fetchSeasonConstructors(season = SEASON) {
-  return await ergastFetch(`${season}/constructors`);
+export async function fetchSeasonConstructors(season = SEASON, signal?: AbortSignal) {
+  return await ergastFetch(`${season}/constructors`, signal);
 }
 
 // Season Results
-export async function fetchSeasonResults(season = SEASON) {
-  return await ergastFetch(`${season}/results`);
+export async function fetchSeasonResults(season = SEASON, signal?: AbortSignal) {
+  return await ergastFetch(`${season}/results`, signal);
 }
 
 // Race Results
 export async function fetchRaceResults(
   season = SEASON,
-  round: string
+  round: string,
+  signal?: AbortSignal
 ): Promise<{ race: Race; results: RaceResult[] } | null> {
   const data = await ergastFetch<{
     RaceTable: { Races: Array<Race & { Results: RaceResult[] }> };
-  }>(`${season}/${round}/results`);
+  }>(`${season}/${round}/results`, signal);
 
   const race = data?.RaceTable?.Races?.[0];
   if (!race) return null;
@@ -99,11 +114,12 @@ export async function fetchRaceResults(
 // Qualifying Results
 export async function fetchQualifyingResults(
   season = SEASON,
-  round: string
+  round: string,
+  signal?: AbortSignal
 ): Promise<{ race: Race; results: unknown[] } | null> {
   const data = await ergastFetch<{
     RaceTable: { Races: Array<Race & { QualifyingResults: unknown[] }> };
-  }>(`${season}/${round}/qualifying`);
+  }>(`${season}/${round}/qualifying`, signal);
 
   const race = data?.RaceTable?.Races?.[0];
   if (!race) return null;
@@ -114,12 +130,13 @@ export async function fetchQualifyingResults(
 export async function fetchLapTimes(
   season = SEASON,
   round: string,
-  lap?: string
+  lap?: string,
+  signal?: AbortSignal
 ): Promise<LapTime[]> {
   const lapPath = lap ? `/laps/${lap}` : `/laps`;
   const data = await ergastFetch<{
     RaceTable: { Races: Array<{ Laps: LapTime[] }> };
-  }>(`${season}/${round}${lapPath}`);
+  }>(`${season}/${round}${lapPath}`, signal);
 
   return data?.RaceTable?.Races?.[0]?.Laps || [];
 }
@@ -127,11 +144,12 @@ export async function fetchLapTimes(
 // Pit Stops
 export async function fetchPitStops(
   season = SEASON,
-  round: string
+  round: string,
+  signal?: AbortSignal
 ): Promise<PitStop[]> {
   const data = await ergastFetch<{
     RaceTable: { Races: Array<{ PitStops: PitStop[] }> };
-  }>(`${season}/${round}/pitstops`);
+  }>(`${season}/${round}/pitstops`, signal);
 
   return data?.RaceTable?.Races?.[0]?.PitStops || [];
 }

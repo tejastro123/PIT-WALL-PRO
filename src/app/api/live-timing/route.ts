@@ -1,6 +1,6 @@
-export const runtime = "edge";
+// export const runtime = "edge";
 
-export async function GET(req: Request) {
+export async function GET() {
   let timerId: ReturnType<typeof setInterval>;
 
   let isClosed = false;
@@ -8,11 +8,11 @@ export async function GET(req: Request) {
 
   const stream = new ReadableStream({
     start(controller) {
-      const send = (data: any) => {
+      const send = (data: unknown) => {
         if (!isClosed) {
           try {
             controller.enqueue(`data: ${JSON.stringify(data)}\n\n`);
-          } catch (e) {
+          } catch {
             isClosed = true;
           }
         }

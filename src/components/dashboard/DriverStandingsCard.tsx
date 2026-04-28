@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import type { DriverStanding } from "@/types/f1";
 import { getTeamColor, getPositionColor } from "@/lib/utils";
-import { Star, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Star } from "lucide-react";
 
 interface Props {
   standings: DriverStanding[];

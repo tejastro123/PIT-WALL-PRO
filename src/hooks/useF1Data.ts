@@ -10,6 +10,7 @@ import {
   fetchSeasonResults,
 } from "@/lib/api";
 import { useF1Store } from "@/store/f1Store";
+import type { RaceResult } from "@/types/f1";
 
 const STALE_TIME = 5 * 60 * 1000; // 5 min
 const REFETCH_INTERVAL = 10 * 60 * 1000; // 10 min
@@ -30,7 +31,7 @@ export function useF1Data() {
   // Driver Standings
   const driversQuery = useQuery({
     queryKey: ["driverStandings"],
-    queryFn: () => fetchDriverStandings(),
+    queryFn: ({ signal }) => fetchDriverStandings("2026", signal),
     staleTime: STALE_TIME,
     refetchInterval: REFETCH_INTERVAL,
     retry: 3,
@@ -39,7 +40,7 @@ export function useF1Data() {
   // Constructor Standings
   const constructorsQuery = useQuery({
     queryKey: ["constructorStandings"],
-    queryFn: () => fetchConstructorStandings(),
+    queryFn: ({ signal }) => fetchConstructorStandings("2026", signal),
     staleTime: STALE_TIME,
     refetchInterval: REFETCH_INTERVAL,
     retry: 3,
@@ -48,7 +49,7 @@ export function useF1Data() {
   // Race Schedule
   const racesQuery = useQuery({
     queryKey: ["raceSchedule"],
-    queryFn: () => fetchRaceSchedule(),
+    queryFn: ({ signal }) => fetchRaceSchedule("2026", signal),
     staleTime: STALE_TIME * 12, // 1 hour
     retry: 3,
   });
@@ -81,8 +82,8 @@ export function useF1Data() {
   const { lastRace } = useF1Store();
   const lastRaceQuery = useQuery({
     queryKey: ["lastRaceResults", lastRace?.round],
-    queryFn: () =>
-      lastRace ? fetchRaceResults("2026", lastRace.round) : null,
+    queryFn: ({ signal }) =>
+      lastRace ? fetchRaceResults("2026", lastRace.round, signal) : null,
     enabled: !!lastRace,
     staleTime: STALE_TIME * 24,
     retry: 2,
@@ -97,15 +98,16 @@ export function useF1Data() {
   // Season Results Query
   const seasonResultsQuery = useQuery({
     queryKey: ["seasonResults"],
-    queryFn: () => fetchSeasonResults(),
+    queryFn: ({ signal }) => fetchSeasonResults("2026", signal),
     staleTime: STALE_TIME * 12,
   });
 
   useEffect(() => {
     if (seasonResultsQuery.data) {
-      const resultsMap: Record<string, any[]> = {};
-      const racesWithResults = (seasonResultsQuery.data as any).RaceTable?.Races || [];
-      racesWithResults.forEach((race: any) => {
+      const resultsMap: Record<string, RaceResult[]> = {};
+      const data = seasonResultsQuery.data as { RaceTable?: { Races: Array<{ round: string; Results: RaceResult[] }> } };
+      const racesWithResults = data.RaceTable?.Races || [];
+      racesWithResults.forEach((race) => {
         resultsMap[race.round] = race.Results || [];
       });
       setSeasonResults(resultsMap);

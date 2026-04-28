@@ -16,11 +16,10 @@ interface TrackMapProps {
   speed?: number[];
   gear?: number[];
   corners?: Corner[];
-  rotation?: number;
   loading?: boolean;
 }
 
-export function TrackMap({ x, y, speed, gear, corners, rotation = 0, loading }: TrackMapProps) {
+export function TrackMap({ x, y, speed, gear, corners, loading }: TrackMapProps) {
   const points = useMemo(() => {
     if (!x.length || !y.length) return [];
     

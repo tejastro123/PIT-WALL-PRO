@@ -1,38 +1,43 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSessionStore } from "@/store/sessionStore";
 import { fetchRaceSchedule } from "@/lib/api";
-import { Race } from "@/types/f1";
-import { ChevronDown, Calendar, MapPin, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
 export function SessionSelector() {
-  const { year, event, sessionType, setEvent, setSessionType } = useSessionStore();
-  const [races, setRaces] = useState<Race[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    async function loadSchedule() {
-      setIsLoading(true);
-      try {
-        const schedule = await fetchRaceSchedule(year.toString());
-        setRaces(schedule);
-      } catch (error) {
-        console.error("Failed to load schedule:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadSchedule();
-  }, [year]);
+  const { year, event, sessionType, setYear, setEvent, setSessionType } = useSessionStore();
+  const { data: races = [], isLoading } = useQuery({
+    queryKey: ["raceSchedule", year],
+    queryFn: ({ signal }) => fetchRaceSchedule(year.toString(), signal),
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours
+  });
 
   return (
     <div className="flex flex-wrap items-center gap-4 p-4 border border-white/10 bg-white/[0.02] backdrop-blur-md rounded-lg">
       {/* Season Tag */}
       <div className="px-4 py-2 bg-[var(--f1-red)] text-white font-orbitron font-black text-xs italic"
         style={{ clipPath: "polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)" }}>
-        2026 LIVE
+        {year} {year >= 2026 ? "LIVE" : "ARCHIVE"}
+      </div>
+
+      {/* Year Selector */}
+      <div className="relative group">
+        <label className="absolute -top-2 left-3 px-1 bg-black text-[9px] font-mono text-[var(--f1-red)] tracking-widest uppercase">Season</label>
+        <select
+          value={year}
+          onChange={(e) => setYear(parseInt(e.target.value))}
+          className="bg-black border border-white/10 text-white font-mono text-xs p-3 pr-8 outline-none appearance-none hover:border-[var(--f1-red)] transition-colors min-w-[100px]"
+        >
+          <option value="2026">2026</option>
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+          <option value="2021">2021</option>
+        </select>
+        <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
       </div>
 
       {/* Event Selector */}

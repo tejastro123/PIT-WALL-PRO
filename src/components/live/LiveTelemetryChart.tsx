@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 import type { LiveDriver } from "@/types/f1";
@@ -29,10 +29,11 @@ export function LiveTelemetryChart({ drivers, height = 260 }: Props) {
   const [mounted, setMounted] = useState(false);
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
-  const speedData = useMemo(() => generateSpeedData(drivers), [drivers.length]);
+  const speedData = useMemo(() => generateSpeedData(drivers), [drivers]);
 
   if (!mounted) {
     return <div className="h-[260px] w-full bg-[rgba(225,6,0,0.06)] animate-pulse mt-6" />;
@@ -50,7 +51,7 @@ export function LiveTelemetryChart({ drivers, height = 260 }: Props) {
       </div>
 
       <div className="p-6">
-        <ResponsiveContainer width="100%" height={height}>
+        <ResponsiveContainer width="100%" height={height} minHeight={100}>
           <AreaChart data={speedData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
             <defs>
               {drivers.map((d, i) => (

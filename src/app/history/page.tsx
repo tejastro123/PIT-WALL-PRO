@@ -2,51 +2,67 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { useFastF1 } from "@/hooks/useFastF1";
+import { useFastF1, type SeasonResultData, type SeasonSummary } from "@/hooks/useFastF1";
 import { useSessionStore } from "@/store/sessionStore";
-import { getDriverColor, getTeamColorFastF1 } from "@/lib/driver-colors";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-  ResponsiveContainer, Cell, Legend, LineChart, Line
+import { getDriverColor } from "@/lib/driver-colors";
+import {
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, LineChart, Line
 } from "recharts";
-import { SessionSelector } from "@/components/ui/SessionSelector";
-import { History as HistoryIcon, TrendingUp, Award, Calculator, ShieldAlert } from "lucide-react";
+import { History as HistoryIcon, TrendingUp, Award, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function HistoryPage() {
-  const { getSeasonResults, getSeasonSummary, loading } = useFastF1();
+  const { getSeasonResults, getSeasonSummary } = useFastF1();
   const { year: globalYear } = useSessionStore();
   const [selectedYear, setSelectedYear] = useState(globalYear);
+
+  const [seasonResults, setSeasonResults] = useState<SeasonResultData[]>([]);
+  const [mounted, setMounted] = useState(false);
   
-  const [seasonResults, setSeasonResults] = useState<any[]>([]);
-  const [standings, setStandings] = useState<any[]>([]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+  const [standings, setStandings] = useState<SeasonSummary[]>([]);
   const [activeTab, setActiveTab] = useState<"matrix" | "progression" | "standings">("matrix");
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function loadData() {
+      const signal = controller.signal;
       const [results, summ] = await Promise.all([
-        getSeasonResults(selectedYear),
-        getSeasonSummary(selectedYear)
+        getSeasonResults(selectedYear, signal),
+        getSeasonSummary(selectedYear, signal)
       ]);
+
+      if (signal.aborted) {
+        return;
+      }
+
       if (results) setSeasonResults(results);
       if (summ) setStandings(summ);
     }
+
     loadData();
+
+    return () => controller.abort();
   }, [selectedYear, getSeasonResults, getSeasonSummary]);
 
   // Points Progression Data
   const progressionData = useMemo(() => {
     const drivers = Array.from(new Set(seasonResults.map(r => r.driverCode))).slice(0, 10);
     const rounds = Array.from(new Set(seasonResults.map(r => r.round))).sort((a, b) => a - b);
-    
+
     const accumulated: Record<string, number> = {};
     drivers.forEach(d => accumulated[d] = 0);
 
     return rounds.map(rnd => {
-      const row: any = { round: `R${rnd}` };
+      const row: Record<string, string | number> = { round: `R${rnd}` };
       drivers.forEach(drv => {
         const res = seasonResults.find(r => r.driverCode === drv && r.round === rnd);
-        accumulated[drv] += res ? parseFloat(res.points) : 0;
+        accumulated[drv] += res ? (typeof res.points === 'string' ? parseFloat(res.points) : res.points) : 0;
         row[drv] = accumulated[drv];
       });
       return row;
@@ -57,12 +73,12 @@ export default function HistoryPage() {
   const heatmapData = useMemo(() => {
     const drivers = Array.from(new Set(seasonResults.map(r => r.driverCode))).slice(0, 15);
     const rounds = Array.from(new Set(seasonResults.map(r => r.round))).sort((a, b) => a - b);
-    
+
     return drivers.map(drv => {
-      const row: any = { driver: drv };
+      const row: Record<string, string | number | null> = { driver: drv };
       rounds.forEach(rnd => {
         const res = seasonResults.find(r => r.driverCode === drv && r.round === rnd);
-        row[`R${rnd}`] = res ? parseInt(res.position) : null;
+        row[`R${rnd}`] = res ? res.position : null;
       });
       return row;
     });
@@ -107,7 +123,7 @@ export default function HistoryPage() {
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as "matrix" | "progression" | "standings")}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 font-orbitron font-bold text-[9px] tracking-widest uppercase transition-all",
                   activeTab === tab.id ? "bg-[var(--f1-red)] text-white" : "bg-white/5 text-white/40 hover:text-white"
@@ -124,7 +140,7 @@ export default function HistoryPage() {
 
       <div className="space-y-8">
         {activeTab === "matrix" && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="card-base p-8 overflow-x-auto"
           >
@@ -132,7 +148,7 @@ export default function HistoryPage() {
               <TrendingUp size={18} className="text-[var(--f1-red)]" />
               <h3 className="font-orbitron font-bold text-[11px] text-white tracking-[0.4em] uppercase">Race_Result_Matrix</h3>
             </div>
-            
+
             <table className="w-full text-left font-mono text-[10px]">
               <thead>
                 <tr className="border-b border-white/10">
@@ -146,21 +162,22 @@ export default function HistoryPage() {
                 {heatmapData.map((row) => (
                   <tr key={row.driver} className="border-b border-white/5 group hover:bg-white/[0.02]">
                     <td className="py-3 px-2 flex items-center gap-3">
-                      <div className="w-1 h-4" style={{ backgroundColor: getDriverColor(row.driver) }} />
-                      <span className="font-bold text-white group-hover:text-[var(--f1-red)] transition-colors">{row.driver}</span>
+                      <div className="w-1 h-4" style={{ backgroundColor: getDriverColor(row.driver as string) }} />
+                      <span className="font-bold text-white group-hover:text-[var(--f1-red)] transition-colors">{row.driver as string}</span>
                     </td>
                     {rounds.map(r => {
-                      const pos = row[r];
+                      const rawPos = row[r];
+                      const pos = typeof rawPos === 'string' ? parseInt(rawPos) : rawPos;
                       let bgColor = "transparent";
                       let textColor = "#8E8E93";
                       if (pos === 1) { bgColor = "#FCD700"; textColor = "black"; }
                       else if (pos === 2) { bgColor = "#C0C0C0"; textColor = "black"; }
                       else if (pos === 3) { bgColor = "#CD7F32"; textColor = "black"; }
-                      else if (pos <= 10 && pos !== null) { bgColor = "rgba(255,255,255,0.1)"; textColor = "white"; }
-                      
+                      else if (pos !== null && (pos as number) <= 10) { bgColor = "rgba(255,255,255,0.1)"; textColor = "white"; }
+
                       return (
                         <td key={r} className="py-3 px-1 text-center">
-                          <div 
+                          <div
                             className="w-7 h-7 flex items-center justify-center rounded-sm mx-auto"
                             style={{ backgroundColor: bgColor, color: textColor, opacity: pos === null ? 0.2 : 1 }}
                           >
@@ -177,7 +194,7 @@ export default function HistoryPage() {
         )}
 
         {activeTab === "progression" && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="card-base p-8"
           >
@@ -186,32 +203,36 @@ export default function HistoryPage() {
               <h3 className="font-orbitron font-bold text-[11px] text-white tracking-[0.4em] uppercase">Point_Accumulation_Timeline</h3>
             </div>
             <div className="h-[600px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              {!mounted ? (
+                <div className="w-full h-full bg-white/5 animate-pulse" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%" minHeight={100}>
                 <LineChart data={progressionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="round" stroke="#8E8E93" tick={{fontSize: 10}} />
-                  <YAxis stroke="#8E8E93" tick={{fontSize: 10}} />
-                  <Tooltip contentStyle={{backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px'}} />
+                  <XAxis dataKey="round" stroke="#8E8E93" tick={{ fontSize: 10 }} />
+                  <YAxis stroke="#8E8E93" tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', fontSize: '10px' }} />
                   <Legend />
                   {Object.keys(progressionData[0] || {}).filter(k => k !== "round").map(drv => (
-                    <Line 
-                      key={drv} 
-                      type="monotone" 
-                      dataKey={drv} 
-                      stroke={getDriverColor(drv)} 
-                      strokeWidth={2} 
-                      dot={{ r: 3 }} 
-                      activeDot={{ r: 6 }} 
+                    <Line
+                      key={drv}
+                      type="monotone"
+                      dataKey={drv}
+                      stroke={getDriverColor(drv)}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 6 }}
                     />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+              )}
             </div>
           </motion.div>
         )}
 
         {activeTab === "standings" && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             className="card-base p-8"
           >
@@ -220,7 +241,7 @@ export default function HistoryPage() {
               <h3 className="font-orbitron font-bold text-[11px] text-white tracking-[0.4em] uppercase">Season_Final_Standings</h3>
             </div>
             <div className="space-y-2">
-              {standings.map((d, i) => (
+              {standings.map((d) => (
                 <div key={d.driverId} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 hover:border-[var(--f1-red)]/30 transition-all group">
                   <div className="flex items-center gap-6">
                     <div className="font-orbitron font-black text-2xl text-white/20 group-hover:text-white transition-colors w-10">

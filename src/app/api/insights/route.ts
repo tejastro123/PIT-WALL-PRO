@@ -2,7 +2,8 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 
-export const runtime = "edge";
+// Use default Node.js runtime to avoid static generation warnings
+// export const runtime = "edge";
 
 export async function POST(req: Request) {
   try {

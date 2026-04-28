@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFantasyStore, useF1Store } from "@/store/f1Store";
 import { getTeamColor } from "@/lib/utils";
-import { Gamepad2, Trophy, Users, Building2, Check, Target, Brain, Save, Zap, Flag, Star, Flame, TrendingDown, Zap as ZapIcon } from "lucide-react";
+import { Gamepad2, Trophy, Users, Building2, Check, Target, Brain, Save, Zap } from "lucide-react";
 import type { FantasyTeam } from "@/types/f1";
 
 type PredKey = "p1" | "p2" | "p3" | "pole" | "dotd" | "goodSurprise" | "badRace" | "sprintPole" | "sprintWin" | "fastest";
