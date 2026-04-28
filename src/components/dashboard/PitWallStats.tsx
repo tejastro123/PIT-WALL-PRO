@@ -1,10 +1,18 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useF1Store } from "@/store/f1Store";
 
 export function PitWallStats() {
   const { races, driverStandings, constructorStandings } = useF1Store();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return <div className="mb-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-[120px] bg-white/[0.02] animate-pulse" />;
   
   const totalRaces = races.length || 24;
   const completedRaces = races.filter(r => new Date(r.date) < new Date()).length;

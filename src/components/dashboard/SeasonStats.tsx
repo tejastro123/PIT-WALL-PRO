@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { DriverStanding, ConstructorStanding, Race } from "@/types/f1";
 
@@ -10,7 +11,15 @@ interface Props {
 }
 
 export function SeasonStats({ drivers, teams, races }: Props) {
-  if (drivers.length === 0) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  if (!mounted || drivers.length === 0) return (
+    <div className="mb-8 h-[160px] bg-white/[0.02] animate-pulse" />
+  );
 
   const leader = drivers[0];
   const teamLeader = teams[0];

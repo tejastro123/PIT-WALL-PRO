@@ -173,12 +173,9 @@ export default function AnalysisPage() {
             </div>
             
             <div className="max-h-[650px] overflow-y-auto custom-scrollbar">
-              {!sessionData?.results || sessionData.results.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-12 text-center">
-                  <Activity size={24} className="text-white/10 mb-4" />
-                  <p className="font-mono text-[9px] text-white/20 uppercase tracking-[0.2em]">
-                    {sessionErrorMessage || "No_Data_Found_For_Session"}
-                  </p>
+              {(!Array.isArray(sessionData?.results) || sessionData.results.length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-40 text-center">
+                  <div className="font-mono text-[10px] text-[var(--f1-gray)] uppercase tracking-widest">No session results found</div>
                 </div>
               ) : (
                 sessionData.results.map((res) => (
@@ -332,7 +329,7 @@ export default function AnalysisPage() {
                   <div className="card-base p-6 flex flex-col">
                     <h3 className="font-orbitron font-bold text-[11px] text-white tracking-[0.4em] uppercase mb-6">Corner_Profile_Index</h3>
                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-                      {trackData?.corners.map((corner: CornerData) => (
+                      {Array.isArray(trackData?.corners) && trackData.corners.map((corner: CornerData) => (
                         <div key={corner.number} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 hover:border-[var(--f1-red)]/30 transition-all group">
                           <div className="flex items-center gap-4">
                             <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center font-orbitron font-black text-xs text-[var(--f1-red)] group-hover:scale-110 transition-transform">
