@@ -216,8 +216,21 @@ const fetchWithRetry = async (url: string, options: FetchWithRetryOptions = {}) 
       const response = await fetch(url, { signal });
 
       if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { detail?: string; error?: string } | null;
-        const message = payload?.detail || payload?.error || `HTTP error! status: ${response.status}`;
+        let message = `HTTP error! status: ${response.status}`;
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const payload = await response.json();
+            message = payload?.detail || payload?.error || message;
+          } else {
+            // Non-JSON response (likely 502 Bad Gateway HTML or 404)
+            const text = await response.text();
+            if (text.includes("Bad Gateway")) message = "Backend Service Timeout (Bad Gateway)";
+            else if (text.includes("Service Unavailable")) message = "Backend Service Unavailable";
+          }
+        } catch (e) {
+          console.error("Error parsing error response:", e);
+        }
         throw new FastF1RequestError(message, response.status);
       }
 

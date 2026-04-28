@@ -69,7 +69,7 @@ export default function AnalysisPage() {
   const trackData = trackQuery.data;
 
   const lapsQuery = useF1Laps(year, event, sessionType, sessionReady);
-  const allLaps = lapsQuery.data || [];
+  const allLaps = Array.isArray(lapsQuery.data) ? lapsQuery.data : [];
 
   const compQuery = useF1Comparison(year, event, sessionType, activeDriver, compareDriver);
   const comparisonData = compQuery.data;
@@ -78,24 +78,27 @@ export default function AnalysisPage() {
   const chartData = useMemo(() => {
     if (!telemetry?.telemetry) return [];
     const t = telemetry.telemetry;
+    if (!Array.isArray(t.time) || !Array.isArray(t.speed)) return [];
+    
     return t.time.map((time: number, i: number) => ({
-      time: time.toFixed(2),
-      speed: t.speed[i],
-      rpm: t.rpm[i],
-      throttle: t.throttle[i],
-      brake: t.brake[i],
-      gear: t.gear[i],
+      time: typeof time === 'number' ? time.toFixed(2) : String(time),
+      speed: t.speed[i] || 0,
+      rpm: t.rpm?.[i] || 0,
+      throttle: t.throttle?.[i] || 0,
+      brake: t.brake?.[i] || 0,
+      gear: t.gear?.[i] || 0,
     }));
   }, [telemetry]);
 
   // Formatted Comparison for Recharts
   const compChartData = useMemo(() => {
-    if (!comparisonData || !comparisonData.delta) return [];
+    if (!Array.isArray(comparisonData.ref_distance) || !Array.isArray(comparisonData.delta)) return [];
+    
     return comparisonData.ref_distance.map((dist: number, i: number) => ({
       distance: Math.round(dist),
-      [comparisonData.d1.name]: comparisonData.d1.speed[i],
-      [comparisonData.d2.name]: comparisonData.d2.speed[i],
-      delta: comparisonData.delta[i],
+      [comparisonData.d1.name]: comparisonData.d1.speed?.[i] || 0,
+      [comparisonData.d2.name]: comparisonData.d2.speed?.[i] || 0,
+      delta: comparisonData.delta?.[i] || 0,
     }));
   }, [comparisonData]);
 
@@ -464,7 +467,7 @@ export default function AnalysisPage() {
                             <Scatter 
                               key={compound}
                               name={compound} 
-                              data={allLaps.filter(l => l.driver === activeDriver && l.compound === compound)} 
+                              data={allLaps.filter(l => l && l.driver === activeDriver && l.compound === compound)} 
                               fill={getTireColor(compound)} 
                               shape="circle"
                             />

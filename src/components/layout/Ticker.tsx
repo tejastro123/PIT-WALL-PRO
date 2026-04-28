@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useF1Store } from "@/store/f1Store";
 import { formatDate } from "@/lib/utils";
 
@@ -22,10 +22,12 @@ const DEFAULT_ITEMS: TickItem[] = [
 ];
 
 export function Ticker() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const { driverStandings, constructorStandings, nextRace } = useF1Store();
 
   const items = useMemo(() => {
-    if (driverStandings.length === 0) return DEFAULT_ITEMS;
+    if (!mounted || driverStandings.length === 0) return DEFAULT_ITEMS;
 
     const leader = driverStandings[0];
     const teamLeader = constructorStandings[0];

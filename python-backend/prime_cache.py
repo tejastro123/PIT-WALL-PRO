@@ -3,7 +3,7 @@ import os
 import argparse
 import sys
 
-# python prime_cache.py 2024
+# python prime_cache.py 2026
 
 # Setup Cache - Must match main.py
 CACHE_DIR = "f1_cache"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -60,8 +60,27 @@ export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  
   const { unreadCount, isAuthenticated, profile } = useUserStore();
   const { isConnected } = useLiveRaceStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-[100] border-b border-white/10"
+        style={{ background: "rgba(5,5,10,0.85)", backdropFilter: "blur(20px)" }}>
+        <div className="max-w-[1700px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+           <div className="flex items-center gap-6">
+              <div className="font-orbitron font-900 text-sm text-white tracking-widest leading-none italic uppercase">PITWALL<span className="text-[var(--f1-red)]">PRO</span></div>
+           </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-[100] border-b border-white/10"

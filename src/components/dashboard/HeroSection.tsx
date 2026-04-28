@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { pad } from "@/lib/utils";
 import type { UserProfile } from "@/types/f1";
@@ -22,6 +23,19 @@ function DateLine() {
 }
 
 export function HeroSection({ profile }: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <section className="relative pt-32 pb-24 overflow-hidden min-h-[500px] flex items-center">
+        <div className="absolute inset-0 w-full h-full opacity-60 pointer-events-none z-0">
+           <div className="absolute inset-0 bg-[var(--f1-darker)]" />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 30 }}

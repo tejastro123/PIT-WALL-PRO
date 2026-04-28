@@ -50,11 +50,25 @@ def _load_session(session, laps=True, telemetry=False, weather=False):
             event_name = getattr(session.event, 'EventName', 'Unknown Event')
             print(f">>> STARTING DATA LOAD: {event_name} - {session.name}")
             print(f"    (Laps: {laps}, Telemetry: {telemetry}, Weather: {weather})")
-            session.load(laps=laps, telemetry=telemetry, weather=weather)
-            print(f">>> LOAD COMPLETE: {event_name}")
+            
+            # FastF1 load can be slow, especially on first run
+            try:
+                session.load(laps=laps, telemetry=telemetry, weather=weather)
+                print(f">>> LOAD COMPLETE: {event_name}")
+            except Exception as load_err:
+                print(f"!!! CRITICAL LOAD ERROR for {event_name}: {load_err}")
+                # Fallback to basic load if telemetry failed
+                if telemetry:
+                    print("Attempting fallback load without telemetry...")
+                    session.load(laps=laps, telemetry=False, weather=False)
+                    print("Fallback load successful.")
+                else:
+                    raise load_err
             
         return session
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Failed to load data for session: {e}")
         # If the failure was in our logging/logic before load, try a clean load here
         try:
@@ -66,9 +80,16 @@ def _load_session(session, laps=True, telemetry=False, weather=False):
         raise HTTPException(status_code=404, detail=f"Data unavailable for this session: {str(e)}")
 
 # Enable CORS for Next.js frontend
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://pit-wall-pro.vercel.app",
+    "https://pit-wall-pro-tejas.vercel.app", # Including potential variations
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to your frontend URL
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

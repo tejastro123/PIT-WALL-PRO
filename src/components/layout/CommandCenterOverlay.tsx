@@ -5,10 +5,13 @@ import { motion } from "framer-motion";
 import { Activity, Shield, Cpu, Wifi, Globe } from "lucide-react";
 
 export function CommandCenterOverlay() {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState<Date | null>(null);
   const [latency, setLatency] = useState(24);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
     const latTimer = setInterval(() => setLatency(Math.floor(Math.random() * 15) + 18), 3000);
     return () => {
@@ -16,6 +19,8 @@ export function CommandCenterOverlay() {
       clearInterval(latTimer);
     };
   }, []);
+
+  if (!mounted || !time) return null;
 
   return (
     <>
