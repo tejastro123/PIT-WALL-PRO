@@ -92,7 +92,7 @@ export default function AnalysisPage() {
 
   // Formatted Comparison for Recharts
   const compChartData = useMemo(() => {
-    if (!Array.isArray(comparisonData.ref_distance) || !Array.isArray(comparisonData.delta)) return [];
+    if (!comparisonData || !Array.isArray(comparisonData.ref_distance) || !Array.isArray(comparisonData.delta)) return [];
     
     return comparisonData.ref_distance.map((dist: number, i: number) => ({
       distance: Math.round(dist),

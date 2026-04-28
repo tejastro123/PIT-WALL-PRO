@@ -83,8 +83,7 @@ def _load_session(session, laps=True, telemetry=False, weather=False):
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "https://pit-wall-pro.vercel.app",
-    "https://pit-wall-pro-tejas.vercel.app", # Including potential variations
+    "https://pit-wall-pro.vercel.app"
 ]
 
 app.add_middleware(
