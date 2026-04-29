@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python -c \"import sys, json; from graphify.extract import collect_files, extract; from pathlib import Path; detect = json.loads\\(open\\('.graphify_detect.json'\\).read_text\\(\\)\\); code_files = []; [code_files.extend\\(collect_files\\(Path\\(f\\)\\) if Path\\(f\\).is_dir\\(\\) else [Path\\(f\\)]\\) for f in detect.get\\('files', {}\\).get\\('code', []\\)]; result = extract\\(code_files\\) if code_files else {'nodes':[], 'edges':[]}; Path\\('.graphify_ast.json'\\).write_text\\(json.dumps\\(result, indent=2\\)\\); print\\('AST: ' + str\\(len\\(result['nodes']\\)\\) + ' nodes, ' + str\\(len\\(result['edges']\\)\\) + ' edges'\\)\")"
+    ]
+  },
+  "providers": {
+    "ollama": {
+      "apiKey": "ollama",
+      "baseURL": "http://localhost:11434/v1"
+    }
+  }
+}
